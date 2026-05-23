@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  RELEASED
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  inventory Inventory[]
+
+  @@index([createdAt])
+}
+
+model Warehouse {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  inventory Inventory[]
+
+  @@index([createdAt])
+}
+
+model Inventory {
+  id             String   @id @default(cuid())
+  productId      String
+  warehouseId    String
+  totalStock     Int      @default(0)
+  reservedStock  Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  product      Product     @relation(fields: [productId], references: [id])
+  warehouse    Warehouse   @relation(fields: [warehouseId], references: [id])
+  reservations Reservation[]
+
+  @@unique([productId, warehouseId])
+  @@index([warehouseId])
+  @@index([createdAt])
+}
+
+model Reservation {
+  id          String             @id @default(cuid())
+  inventoryId String
+  quantity    Int
+  status      ReservationStatus  @default(PENDING)
+  expiresAt   DateTime
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  inventory Inventory @relation(fields: [inventoryId], references: [id])
+
+  @@index([inventoryId])
+  @@index([status])
+  @@index([expiresAt])
+  @@index([createdAt])
+}
+
+model IdempotencyKey {
+  key       String   @id
+  result    String
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
