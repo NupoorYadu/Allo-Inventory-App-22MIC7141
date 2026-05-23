@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const reservationId = params.id;
+  const { id: reservationId } = await params;
 
   try {
     // Check reservation exists and is still valid
@@ -37,7 +37,7 @@ export async function POST(
     }
 
     // Confirm reservation in transaction
-    const confirmed = await prisma.$transaction(async (tx) => {
+    const confirmed = await prisma.$transaction(async (tx: any) => {
       // Lock inventory row
       const inventory = await tx.$queryRaw<
         Array<{ id: string; totalStock: number; reservedStock: number }>

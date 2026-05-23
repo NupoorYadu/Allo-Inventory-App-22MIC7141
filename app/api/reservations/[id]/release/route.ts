@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const reservationId = params.id;
+  const { id: reservationId } = await params;
 
   try {
     const reservation = await prisma.reservation.findUnique({
@@ -29,7 +29,7 @@ export async function POST(
     }
 
     // Release reservation in transaction
-    const released = await prisma.$transaction(async (tx) => {
+    const released = await prisma.$transaction(async (tx: any) => {
       // Decrease reservedStock to make inventory available again
       await tx.inventory.update({
         where: { id: reservation.inventoryId },

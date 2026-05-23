@@ -32,26 +32,26 @@ export async function GET() {
     }
 
     // Release all expired reservations in a single transaction
-    await prisma.$transaction(
-      expiredReservations.map((reservation) =>
-        prisma.$transaction([
-          // Decrease reservedStock
-          prisma.inventory.update({
-            where: { id: reservation.inventoryId },
-            data: {
-              reservedStock: {
-                decrement: reservation.quantity,
-              },
+    const operations = expiredReservations.flatMap(
+      (reservation: typeof expiredReservations[0]) => [
+        // Decrease reservedStock
+        prisma.inventory.update({
+          where: { id: reservation.inventoryId },
+          data: {
+            reservedStock: {
+              decrement: reservation.quantity,
             },
-          }),
-          // Update reservation status
-          prisma.reservation.update({
-            where: { id: reservation.id },
-            data: { status: "RELEASED" },
-          }),
-        ])
-      )
+          },
+        }),
+        // Update reservation status
+        prisma.reservation.update({
+          where: { id: reservation.id },
+          data: { status: "RELEASED" },
+        }),
+      ]
     );
+
+    await prisma.$transaction(operations);
 
     return NextResponse.json({
       success: true,

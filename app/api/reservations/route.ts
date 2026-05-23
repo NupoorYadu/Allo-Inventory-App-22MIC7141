@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
 
     if (!validation.success) {
       return NextResponse.json(
-        { error: "Invalid request", details: validation.error.errors },
+        { error: "Invalid request", details: validation.error.flatten() },
         { status: 400 }
       );
     }
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Lock inventory row and reserve stock in a transaction
-    const reservation = await prisma.$transaction(async (tx) => {
+    const reservation = await prisma.$transaction(async (tx: any) => {
       // Lock the inventory row to prevent race conditions
       // This ensures no concurrent requests can modify this row until transaction commits
       const inventory = await tx.$queryRaw<

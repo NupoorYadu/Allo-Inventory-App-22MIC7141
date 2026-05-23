@@ -13,9 +13,10 @@ export async function GET() {
       },
     });
 
-    const productsWithAvailableStock = products.map((product) => ({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const productsWithAvailableStock = products.map((product: any) => ({
       ...product,
-      inventory: product.inventory.map((inv) => ({
+      inventory: product.inventory.map((inv: any) => ({
         ...inv,
         availableStock: inv.totalStock - inv.reservedStock,
       })),
