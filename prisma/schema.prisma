@@ -3,14 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-enum ReservationStatus {
-  PENDING
-  CONFIRMED
-  RELEASED
+  provider = "sqlite"
+  url      = "file:./prisma/dev.db"
 }
 
 model Product {
@@ -52,13 +46,13 @@ model Inventory {
 }
 
 model Reservation {
-  id          String             @id @default(cuid())
+  id          String   @id @default(cuid())
   inventoryId String
   quantity    Int
-  status      ReservationStatus  @default(PENDING)
+  status      String   @default("PENDING") // PENDING, CONFIRMED, RELEASED
   expiresAt   DateTime
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   inventory Inventory @relation(fields: [inventoryId], references: [id])
 
