@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ProductCard } from "@/components/ProductCard";
+import { useProducts } from "@/lib/hooks";
 
 interface Inventory {
   id: string;
@@ -22,28 +23,7 @@ interface Product {
 }
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch("/api/products");
-        if (!response.ok) throw new Error("Failed to fetch products");
-        const data = await response.json();
-        setProducts(data);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch products"
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProducts();
-  }, []);
+  const { products, loading, error } = useProducts(3000);
 
   return (
     <main className="min-h-screen bg-gray-50">
@@ -71,17 +51,17 @@ export default function ProductsPage() {
         <div className="mb-8">
           <h2 className="text-3xl font-bold mb-2">Products</h2>
           <p className="text-gray-600">
-            Reserve inventory across multiple warehouses
+            Reserve inventory across multiple warehouses. Updates automatically every 3 seconds.
           </p>
         </div>
 
-        {loading && (
+        {loading && products.length === 0 && (
           <div className="text-center py-12">
             <p className="text-gray-600">Loading products...</p>
           </div>
         )}
 
-        {error && (
+        {error && products.length === 0 && (
           <div className="bg-red-50 border border-red-200 rounded p-4 text-red-800">
             {error}
           </div>

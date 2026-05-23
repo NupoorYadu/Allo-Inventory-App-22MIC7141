@@ -22,6 +22,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -95,6 +96,8 @@ export default function AdminPage() {
           pendingReservations,
           warehouseUtilization,
         });
+        setError(null);
+        setLastUpdate(new Date());
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to fetch stats");
       } finally {
@@ -111,7 +114,10 @@ export default function AdminPage() {
     <main className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+          <div>
+            <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+            <p className="text-xs text-gray-500 mt-1">Updates every 5 seconds</p>
+          </div>
           <Link href="/" className="text-blue-600 hover:underline">
             Back to products
           </Link>
@@ -119,7 +125,7 @@ export default function AdminPage() {
       </nav>
 
       <div className="max-w-7xl mx-auto px-4 py-12">
-        {loading && <p className="text-center">Loading stats...</p>}
+        {loading && stats === null && <p className="text-center">Loading stats...</p>}
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded p-4 text-red-800">
@@ -185,7 +191,7 @@ export default function AdminPage() {
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
-                        className="bg-blue-600 h-2 rounded-full"
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-500"
                         style={{
                           width: `${warehouse.utilizationPercent}%`,
                         }}
@@ -198,6 +204,10 @@ export default function AdminPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="text-xs text-gray-500 text-right">
+              Last updated: {lastUpdate.toLocaleTimeString()}
             </div>
           </div>
         )}

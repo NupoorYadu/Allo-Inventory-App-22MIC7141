@@ -31,6 +31,15 @@ export function ProductCard({ product }: { product: Product }) {
     (inv) => inv.id === selectedWarehouse
   );
 
+  const availableWarehouses = product.inventory.filter(
+    (inv) => inv.availableStock > 0
+  );
+
+  // Smart allocation: suggest warehouse with most stock if current is out
+  const suggestedWarehouse = availableWarehouses.sort(
+    (a, b) => b.availableStock - a.availableStock
+  )[0];
+
   const handleReserve = async () => {
     if (!selectedInventory) {
       toast.error("Select a warehouse");
@@ -38,7 +47,11 @@ export function ProductCard({ product }: { product: Product }) {
     }
 
     if (selectedInventory.availableStock <= 0) {
-      toast.error("Out of stock");
+      if (suggestedWarehouse) {
+        toast.error(`${selectedInventory.warehouse.name} is out of stock. Try ${suggestedWarehouse.warehouse.name} instead.`);
+      } else {
+        toast.error("Out of stock in all warehouses");
+      }
       return;
     }
 
@@ -53,6 +66,11 @@ export function ProductCard({ product }: { product: Product }) {
           idempotencyKey: crypto.randomUUID(),
         }),
       });
+
+      if (response.status === 409) {
+        toast.error("Stock just sold out. Please try again.");
+        return;
+      }
 
       if (!response.ok) {
         const error = await response.json();
@@ -70,6 +88,8 @@ export function ProductCard({ product }: { product: Product }) {
       setLoading(false);
     }
   };
+
+  const outOfStock = selectedInventory && selectedInventory.availableStock <= 0;
 
   return (
     <div className="border rounded-lg p-6 bg-white shadow-sm hover:shadow-md transition-shadow">
@@ -94,7 +114,7 @@ export function ProductCard({ product }: { product: Product }) {
         <div className="bg-gray-50 rounded p-3 mb-6 text-sm space-y-1">
           <div>
             <span className="text-gray-600">Available: </span>
-            <span className="font-semibold text-green-600">
+            <span className={`font-semibold ${outOfStock ? "text-red-600" : "text-green-600"}`}>
               {selectedInventory.availableStock}
             </span>
           </div>
@@ -108,6 +128,21 @@ export function ProductCard({ product }: { product: Product }) {
               {selectedInventory.reservedStock}
             </span>
           </div>
+        </div>
+      )}
+
+      {outOfStock && suggestedWarehouse && (
+        <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-6 text-sm">
+          <p className="text-blue-900">
+            <span className="font-semibold">Suggestion:</span> Try{" "}
+            <button
+              onClick={() => setSelectedWarehouse(suggestedWarehouse.id)}
+              className="text-blue-600 hover:underline font-semibold"
+            >
+              {suggestedWarehouse.warehouse.name}
+            </button>{" "}
+            ({suggestedWarehouse.availableStock} available)
+          </p>
         </div>
       )}
 
