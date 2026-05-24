@@ -3,7 +3,7 @@
 // API client for the frontend
 // Communicates with Next.js backend API routes
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
 export interface InventoryData {
   id: string;
