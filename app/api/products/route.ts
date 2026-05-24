@@ -22,11 +22,7 @@ export async function GET() {
       })),
     }));
 
-    // Diagnostic: expose non-sensitive DB host for runtime verification (temporary)
-    const envUrl = process.env.DATABASE_URL ?? process.env.DIRECT_URL ?? null;
-    const dbHost = envUrl ? (envUrl.match(/@([^:\/]+)(?::\d+)?/) || [null, null])[1] : null;
-
-    return NextResponse.json({ dbHost, products: productsWithAvailableStock });
+    return NextResponse.json(productsWithAvailableStock);
   } catch (error: unknown) {
     // Temporary verbose debug for runtime error diagnosis in production.
     // This will be reverted once root cause is identified.
