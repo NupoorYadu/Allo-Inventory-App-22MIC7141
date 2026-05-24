@@ -1,0 +1,11 @@
+{
+  "name": "allo-inventory-app-22mic7141",
+  "gitSource": {
+    "type": "github",
+    "repoId": 1247995609,
+    "org": "NupoorYadu",
+    "repo": "Allo-Inventory-App-22MIC7141",
+    "ref": "master"
+  },
+  "target": "production"
+}

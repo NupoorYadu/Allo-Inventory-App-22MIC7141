@@ -1,6 +1,17 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@source "../app";
+@source "../components";
+@source "../lib";
+
+@theme inline {
+  --color-background: #ffffff;
+  --color-foreground: #0f172a;
+  --color-primary: #1e3a8a;
+  --color-primary-foreground: #ffffff;
+  --color-border: rgb(226 232 240);
+  --color-ring: #1e3a8a;
+}
 
 * {
   border-color: rgb(203 213 225 / 0.5);

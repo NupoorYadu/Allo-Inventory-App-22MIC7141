@@ -8,14 +8,21 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 export interface InventoryData {
   id: string;
   name: string;
+  productId: string;
+  warehouseId: string;
   totalStock: number;
   reservedStock: number;
   availableStock: number;
+  warehouse: {
+    id: string;
+    name: string;
+  };
 }
 
 export interface ProductData {
   id: string;
   name: string;
+  createdAt: string;
   inventory: InventoryData[];
 }
 
@@ -26,6 +33,18 @@ export interface ReservationData {
   status: 'PENDING' | 'CONFIRMED' | 'RELEASED';
   expiresAt: string;
   createdAt: string;
+  updatedAt: string;
+  inventory?: {
+    id: string;
+    product: {
+      id: string;
+      name: string;
+    };
+    warehouse: {
+      id: string;
+      name: string;
+    };
+  };
 }
 
 export async function getProducts(): Promise<ProductData[]> {
@@ -37,6 +56,12 @@ export async function getProducts(): Promise<ProductData[]> {
 export async function getWarehouses() {
   const res = await fetch(`${API_BASE}/api/warehouses`);
   if (!res.ok) throw new Error(`Failed to fetch warehouses: ${res.status}`);
+  return res.json();
+}
+
+export async function getReservations(): Promise<ReservationData[]> {
+  const res = await fetch(`${API_BASE}/api/reservations`);
+  if (!res.ok) throw new Error(`Failed to fetch reservations: ${res.status}`);
   return res.json();
 }
 

@@ -23,10 +23,13 @@ export async function GET() {
     }));
 
     return NextResponse.json(productsWithAvailableStock);
-  } catch (error) {
+  } catch (error: unknown) {
+    // Temporary verbose debug for runtime error diagnosis in production.
+    // This will be reverted once root cause is identified.
     console.error("Error fetching products:", error);
+    const err = error as Error;
     return NextResponse.json(
-      { error: "Failed to fetch products" },
+      { error: "Failed to fetch products", message: err.message, stack: err.stack },
       { status: 500 }
     );
   }

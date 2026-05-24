@@ -15,75 +15,105 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { inventoryId, quantity, idempotencyKey } = validation.data;
+    const { inventoryId, quantity } = validation.data;
+    const idempotencyKey =
+      request.headers.get("Idempotency-Key") || validation.data.idempotencyKey;
 
-    // Check for existing idempotency key
-    if (idempotencyKey) {
-      const existing = await prisma.idempotencyKey.findUnique({
-        where: { key: idempotencyKey },
-      });
+    // Lock inventory row to prevent overselling during concurrent reservations.
+    const result = await prisma.$transaction(
+      async (tx: any) => {
+        if (idempotencyKey) {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${idempotencyKey}))`;
 
-      if (existing) {
-        const result = JSON.parse(existing.result);
-        return NextResponse.json(result.data, { status: result.status });
-      }
-    }
+          const existing = await tx.idempotencyKey.findUnique({
+            where: { key: idempotencyKey },
+          });
 
-    // Lock inventory row and reserve stock in a transaction
-    const reservation = await prisma.$transaction(async (tx: any) => {
-      // Read and lock inventory row
-      // For SQLite: uses transaction isolation; for PostgreSQL: can use SELECT ... FOR UPDATE
-      const inventory = await tx.inventory.findUnique({
-        where: { id: inventoryId },
-      });
+          if (existing) {
+            return JSON.parse(existing.result);
+          }
+        }
 
-      if (!inventory) {
-        throw new Error("INVENTORY_NOT_FOUND");
-      }
+        const [inventory] = await tx.$queryRaw<
+          Array<{ id: string; totalStock: number; reservedStock: number }>
+        >`SELECT id, "totalStock", "reservedStock" FROM "Inventory" WHERE id = ${inventoryId} FOR UPDATE`;
 
-      const availableStock = inventory.totalStock - inventory.reservedStock;
+        if (!inventory) {
+          const response = {
+            status: 404,
+            data: { error: "Inventory not found" },
+          };
 
-      if (availableStock < quantity) {
-        throw new Error("INSUFFICIENT_STOCK");
-      }
+          if (idempotencyKey) {
+            await tx.idempotencyKey.create({
+              data: {
+                key: idempotencyKey,
+                result: JSON.stringify(response),
+              },
+            });
+          }
 
-      // Create reservation
-      const newReservation = await tx.reservation.create({
-        data: {
-          inventoryId,
-          quantity,
-          status: "PENDING",
-          expiresAt: addMinutes(new Date(), 10),
-        },
-      });
+          return response;
+        }
 
-      // Update inventory to track reserved stock
-      await tx.inventory.update({
-        where: { id: inventoryId },
-        data: {
-          reservedStock: {
-            increment: quantity,
+        const availableStock = inventory.totalStock - inventory.reservedStock;
+
+        if (availableStock < quantity) {
+          const response = {
+            status: 409,
+            data: { error: "Insufficient stock available" },
+          };
+
+          if (idempotencyKey) {
+            await tx.idempotencyKey.create({
+              data: {
+                key: idempotencyKey,
+                result: JSON.stringify(response),
+              },
+            });
+          }
+
+          return response;
+        }
+
+        const newReservation = await tx.reservation.create({
+          data: {
+            inventoryId,
+            quantity,
+            status: "PENDING",
+            expiresAt: addMinutes(new Date(), 10),
           },
-        },
-      });
+        });
 
-      return newReservation;
-    });
+        await tx.inventory.update({
+          where: { id: inventoryId },
+          data: {
+            reservedStock: {
+              increment: quantity,
+            },
+          },
+        });
 
-    // Store idempotency key if provided
-    if (idempotencyKey) {
-      await prisma.idempotencyKey.create({
-        data: {
-          key: idempotencyKey,
-          result: JSON.stringify({
-            status: 201,
-            data: reservation,
-          }),
-        },
-      });
-    }
+        const response = {
+          status: 201,
+          data: newReservation,
+        };
 
-    return NextResponse.json(reservation, { status: 201 });
+        if (idempotencyKey) {
+          await tx.idempotencyKey.create({
+            data: {
+              key: idempotencyKey,
+              result: JSON.stringify(response),
+            },
+          });
+        }
+
+        return response;
+      },
+      { maxWait: 10000, timeout: 15000 }
+    );
+
+    return NextResponse.json(result.data, { status: result.status });
   } catch (error: unknown) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";

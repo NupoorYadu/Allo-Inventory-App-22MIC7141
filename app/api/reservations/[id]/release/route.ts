@@ -8,57 +8,75 @@ export async function POST(
   const { id: reservationId } = await params;
 
   try {
-    const reservation = await prisma.reservation.findUnique({
-      where: { id: reservationId },
-    });
+    const released = await prisma.$transaction(
+      async (tx: any) => {
+        const [reservation] = await tx.$queryRaw<
+          Array<{
+            id: string;
+            inventoryId: string;
+            quantity: number;
+            status: string;
+          }>
+        >`SELECT id, "inventoryId", quantity, status FROM "Reservation" WHERE id = ${reservationId} FOR UPDATE`;
 
-    if (!reservation) {
+        if (!reservation) {
+          throw new Error("RESERVATION_NOT_FOUND");
+        }
+
+        if (reservation.status !== "PENDING") {
+          throw new Error(`RESERVATION_${reservation.status}`);
+        }
+
+        await tx.$queryRaw<
+          Array<{ id: string }>
+        >`SELECT id FROM "Inventory" WHERE id = ${reservation.inventoryId} FOR UPDATE`;
+
+        await tx.inventory.update({
+          where: { id: reservation.inventoryId },
+          data: {
+            reservedStock: {
+              decrement: reservation.quantity,
+            },
+          },
+        });
+
+        return tx.reservation.update({
+          where: { id: reservationId },
+          data: {
+            status: "RELEASED",
+          },
+          include: {
+            inventory: {
+              include: {
+                product: true,
+                warehouse: true,
+              },
+            },
+          },
+        });
+      },
+      { maxWait: 10000, timeout: 15000 }
+    );
+
+    return NextResponse.json(released);
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+
+    if (errorMessage === "RESERVATION_NOT_FOUND") {
       return NextResponse.json(
         { error: "Reservation not found" },
         { status: 404 }
       );
     }
 
-    if (reservation.status !== "PENDING") {
+    if (errorMessage.startsWith("RESERVATION_")) {
       return NextResponse.json(
-        {
-          error: `Reservation is already ${reservation.status.toLowerCase()}`,
-        },
+        { error: "Reservation is no longer pending" },
         { status: 400 }
       );
     }
 
-    // Release reservation in transaction
-    const released = await prisma.$transaction(async (tx: any) => {
-      // Decrease reservedStock to make inventory available again
-      await tx.inventory.update({
-        where: { id: reservation.inventoryId },
-        data: {
-          reservedStock: {
-            decrement: reservation.quantity,
-          },
-        },
-      });
-
-      // Update reservation status
-      return tx.reservation.update({
-        where: { id: reservationId },
-        data: {
-          status: "RELEASED",
-        },
-        include: {
-          inventory: {
-            include: {
-              product: true,
-              warehouse: true,
-            },
-          },
-        },
-      });
-    });
-
-    return NextResponse.json(released);
-  } catch (error) {
     console.error("Error releasing reservation:", error);
     return NextResponse.json(
       { error: "Failed to release reservation" },

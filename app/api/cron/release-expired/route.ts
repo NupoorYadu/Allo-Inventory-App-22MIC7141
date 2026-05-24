@@ -1,62 +1,59 @@
 import { prisma } from "@/lib/prisma";
+import { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    // Verify cron secret
     const secret = process.env.CRON_SECRET;
-    if (!secret) {
-      return NextResponse.json(
-        { error: "CRON_SECRET not configured" },
-        { status: 500 }
-      );
+    const authHeader = request.headers.get("authorization");
+
+    if (secret && authHeader !== `Bearer ${secret}`) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Find all expired pending reservations
     const now = new Date();
-    const expiredReservations = await prisma.reservation.findMany({
-      where: {
-        status: "PENDING",
-        expiresAt: {
-          lt: now,
-        },
-      },
-    });
+    const released = await prisma.$transaction(
+      async (tx: any) => {
+        const expiredReservations = await tx.$queryRaw<
+          Array<{
+            id: string;
+            inventoryId: string;
+            quantity: number;
+          }>
+        >`SELECT id, "inventoryId", quantity FROM "Reservation" WHERE status = 'PENDING' AND "expiresAt" < ${now} FOR UPDATE`;
 
-    if (expiredReservations.length === 0) {
-      return NextResponse.json({
-        success: true,
-        released: 0,
-        message: "No expired reservations found",
-      });
-    }
+        for (const reservation of expiredReservations) {
+          await tx.$queryRaw<
+            Array<{ id: string }>
+          >`SELECT id FROM "Inventory" WHERE id = ${reservation.inventoryId} FOR UPDATE`;
 
-    // Release all expired reservations in a single transaction
-    const operations = expiredReservations.flatMap(
-      (reservation: typeof expiredReservations[0]) => [
-        // Decrease reservedStock
-        prisma.inventory.update({
-          where: { id: reservation.inventoryId },
-          data: {
-            reservedStock: {
-              decrement: reservation.quantity,
+          await tx.inventory.update({
+            where: { id: reservation.inventoryId },
+            data: {
+              reservedStock: {
+                decrement: reservation.quantity,
+              },
             },
-          },
-        }),
-        // Update reservation status
-        prisma.reservation.update({
-          where: { id: reservation.id },
-          data: { status: "RELEASED" },
-        }),
-      ]
-    );
+          });
 
-    await prisma.$transaction(operations);
+          await tx.reservation.update({
+            where: { id: reservation.id },
+            data: { status: "RELEASED" },
+          });
+        }
+
+        return expiredReservations.length;
+      },
+      { maxWait: 10000, timeout: 15000 }
+    );
 
     return NextResponse.json({
       success: true,
-      released: expiredReservations.length,
-      message: `Released ${expiredReservations.length} expired reservations`,
+      released,
+      message:
+        released === 0
+          ? "No expired reservations found"
+          : `Released ${released} expired reservations`,
     });
   } catch (error) {
     console.error("Error in cleanup cron:", error);
