@@ -19,7 +19,6 @@ export async function POST(request: NextRequest) {
     const idempotencyKey =
       request.headers.get("Idempotency-Key") || validation.data.idempotencyKey;
 
-    // Lock inventory row to prevent overselling during concurrent reservations.
     const result = await prisma.$transaction(
       async (tx: any) => {
         if (idempotencyKey) {
@@ -36,32 +35,25 @@ export async function POST(request: NextRequest) {
 
         const [inventory] = await tx.$queryRaw<
           Array<{ id: string; totalStock: number; reservedStock: number }>
-        >`SELECT id, "totalStock", "reservedStock" FROM "Inventory" WHERE id = ${inventoryId} FOR UPDATE`;
+        >`UPDATE "Inventory"
+          SET "reservedStock" = "reservedStock" + ${quantity}
+          WHERE id = ${inventoryId}
+            AND ("totalStock" - "reservedStock") >= ${quantity}
+          RETURNING id, "totalStock", "reservedStock"`;
 
         if (!inventory) {
+          const inventoryExists = await tx.inventory.findUnique({
+            where: { id: inventoryId },
+            select: { id: true },
+          });
+
           const response = {
-            status: 404,
-            data: { error: "Inventory not found" },
-          };
-
-          if (idempotencyKey) {
-            await tx.idempotencyKey.create({
-              data: {
-                key: idempotencyKey,
-                result: JSON.stringify(response),
-              },
-            });
-          }
-
-          return response;
-        }
-
-        const availableStock = inventory.totalStock - inventory.reservedStock;
-
-        if (availableStock < quantity) {
-          const response = {
-            status: 409,
-            data: { error: "Insufficient stock available" },
+            status: inventoryExists ? 409 : 404,
+            data: {
+              error: inventoryExists
+                ? "Insufficient stock available"
+                : "Inventory not found",
+            },
           };
 
           if (idempotencyKey) {
@@ -85,15 +77,6 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        await tx.inventory.update({
-          where: { id: inventoryId },
-          data: {
-            reservedStock: {
-              increment: quantity,
-            },
-          },
-        });
-
         const response = {
           status: 201,
           data: newReservation,
@@ -110,7 +93,7 @@ export async function POST(request: NextRequest) {
 
         return response;
       },
-      { maxWait: 10000, timeout: 15000 }
+      { maxWait: 30000, timeout: 60000 }
     );
 
     return NextResponse.json(result.data, { status: result.status });

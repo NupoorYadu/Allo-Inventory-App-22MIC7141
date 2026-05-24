@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { differenceInSeconds, format } from "date-fns";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   BarChart3,
@@ -192,6 +193,13 @@ function ReservationRow({
             </div>
           )}
 
+          <a
+            href={`/reservations/${reservation.id}`}
+            className="inline-flex h-8 items-center rounded-sm border border-border px-3 text-xs font-medium text-slate-600 transition-colors hover:bg-white"
+          >
+            Open checkout page
+          </a>
+
           <div>
             <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-slate-400">Activity</div>
             <div className="space-y-2">
@@ -211,6 +219,7 @@ function ReservationRow({
 }
 
 export default function Dashboard() {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("products");
   const [products, setProducts] = useState<ProductData[]>([]);
   const [reservations, setReservations] = useState<ReservationData[]>([]);
@@ -254,10 +263,15 @@ export default function Dashboard() {
   }, [stressInventoryId]);
 
   useEffect(() => {
-    refresh();
+    const initialLoad = window.setTimeout(() => {
+      void refresh().catch(() => {
+        setError("Failed to load inventory");
+      });
+    }, 0);
+
+    return () => window.clearTimeout(initialLoad);
   }, [refresh]);
 
-  // Lightweight polling keeps open dashboards in sync without adding realtime infrastructure.
   useEffect(() => {
     const timer = window.setInterval(() => refresh(true), 5000);
     return () => window.clearInterval(timer);
@@ -324,10 +338,9 @@ export default function Dashboard() {
         crypto.randomUUID()
       );
       setMessage("Reservation created. Complete payment within 10 minutes.");
-      setExpandedReservation(reservation.id);
-      setTab("reservations");
       setModal(null);
       await refresh(true);
+      router.push(`/reservations/${reservation.id}`);
     } catch (err) {
       const text = err instanceof Error ? err.message : "Failed to reserve inventory";
       setError(text === "INSUFFICIENT_STOCK" ? "That stock was just taken. Try another warehouse." : text);
@@ -466,13 +479,13 @@ export default function Dashboard() {
       <main className="mx-auto max-w-7xl space-y-4 px-6 py-5">
         {error && (
           <div className="flex items-start gap-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
             {error}
           </div>
         )}
         {message && (
           <div className="flex items-start gap-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0" />
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
             {message}
           </div>
         )}

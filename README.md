@@ -7,9 +7,9 @@ The main engineering problem is preventing overselling while a customer is away 
 ## What Is Implemented
 
 - Product listing with per-warehouse inventory
-- Reservation checkout flow with countdown timers
+- Reservation checkout page with countdown timers
 - Confirm and release actions
-- PostgreSQL row-level locking with `SELECT ... FOR UPDATE`
+- Atomic reservation writes in PostgreSQL transactions
 - Idempotency keys for safe retries
 - Lightweight polling for inventory updates
 - Vercel cron endpoint for expired reservations
@@ -96,13 +96,12 @@ Inside a Prisma transaction it:
 
 1. optionally locks the idempotency key with `pg_advisory_xact_lock`
 2. checks whether the idempotency response already exists
-3. locks the inventory row with `SELECT ... FOR UPDATE`
+3. atomically increments `reservedStock` with a conditional `UPDATE ... RETURNING`
 4. checks `totalStock - reservedStock`
-5. increments `reservedStock`
-6. creates the reservation
-7. stores the idempotency response
+5. creates the reservation
+6. stores the idempotency response
 
-I chose PostgreSQL row-level locking instead of Redis locks because the inventory update already lives in Postgres. Keeping the read, validation, reservation write, and stock update inside one database transaction makes the correctness story much easier to defend.
+I chose PostgreSQL transactional writes instead of Redis locks because the inventory state already lives in Postgres. Keeping the reservation decision, stock mutation, and idempotency write inside one transaction makes the correctness story much easier to defend.
 
 The final-unit test has been verified against the real API:
 
@@ -237,6 +236,7 @@ GitHub Actions runs on `main`, `master`, and `develop`:
 
 - `npm ci`
 - `npm run lint`
+- `npm run typecheck`
 - `npm run build`
 - `npx prisma validate`
 - route presence checks for the main APIs

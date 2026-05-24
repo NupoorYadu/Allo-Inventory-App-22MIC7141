@@ -8,7 +8,8 @@
     "vercel-build": "prisma generate && next build",
     "start": "next start",
     "seed": "node -r tsx ./prisma/seed.ts",
-    "lint": "tsc --noEmit"
+    "lint": "eslint . --ext .ts,.tsx --max-warnings=0",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",
@@ -26,6 +27,8 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.6",
     "tailwindcss": "^4",
     "tsx": "^4.22.3",
     "typescript": "^5"

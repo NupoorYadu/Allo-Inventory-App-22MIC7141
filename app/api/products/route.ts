@@ -13,23 +13,19 @@ export async function GET() {
       },
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const productsWithAvailableStock = products.map((product: any) => ({
+    const productsWithAvailableStock = products.map((product) => ({
       ...product,
-      inventory: product.inventory.map((inv: any) => ({
+      inventory: product.inventory.map((inv) => ({
         ...inv,
         availableStock: inv.totalStock - inv.reservedStock,
       })),
     }));
 
     return NextResponse.json(productsWithAvailableStock);
-  } catch (error: unknown) {
-    // Temporary verbose debug for runtime error diagnosis in production.
-    // This will be reverted once root cause is identified.
+  } catch (error) {
     console.error("Error fetching products:", error);
-    const err = error as Error;
     return NextResponse.json(
-      { error: "Failed to fetch products", message: err.message, stack: err.stack },
+      { error: "Failed to fetch products" },
       { status: 500 }
     );
   }

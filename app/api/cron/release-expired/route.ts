@@ -23,10 +23,6 @@ export async function GET(request: NextRequest) {
         >`SELECT id, "inventoryId", quantity FROM "Reservation" WHERE status = 'PENDING' AND "expiresAt" < ${now} FOR UPDATE`;
 
         for (const reservation of expiredReservations) {
-          await tx.$queryRaw<
-            Array<{ id: string }>
-          >`SELECT id FROM "Inventory" WHERE id = ${reservation.inventoryId} FOR UPDATE`;
-
           await tx.inventory.update({
             where: { id: reservation.inventoryId },
             data: {
@@ -44,7 +40,7 @@ export async function GET(request: NextRequest) {
 
         return expiredReservations.length;
       },
-      { maxWait: 10000, timeout: 15000 }
+      { maxWait: 30000, timeout: 60000 }
     );
 
     return NextResponse.json({

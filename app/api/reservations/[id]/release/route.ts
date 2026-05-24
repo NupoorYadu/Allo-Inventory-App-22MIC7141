@@ -27,10 +27,6 @@ export async function POST(
           throw new Error(`RESERVATION_${reservation.status}`);
         }
 
-        await tx.$queryRaw<
-          Array<{ id: string }>
-        >`SELECT id FROM "Inventory" WHERE id = ${reservation.inventoryId} FOR UPDATE`;
-
         await tx.inventory.update({
           where: { id: reservation.inventoryId },
           data: {
@@ -55,7 +51,7 @@ export async function POST(
           },
         });
       },
-      { maxWait: 10000, timeout: 15000 }
+      { maxWait: 30000, timeout: 60000 }
     );
 
     return NextResponse.json(released);
