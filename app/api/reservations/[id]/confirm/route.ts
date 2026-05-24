@@ -38,12 +38,13 @@ export async function POST(
 
     // Confirm reservation in transaction
     const confirmed = await prisma.$transaction(async (tx: any) => {
-      // Lock inventory row
-      const inventory = await tx.$queryRaw<
-        Array<{ id: string; totalStock: number; reservedStock: number }>
-      >`SELECT id, "totalStock", "reservedStock" FROM "Inventory" WHERE id = ${reservation.inventoryId} FOR UPDATE`;
+      // Read inventory row
+      // For SQLite: uses transaction isolation; for PostgreSQL: can use SELECT ... FOR UPDATE
+      const inventory = await tx.inventory.findUnique({
+        where: { id: reservation.inventoryId },
+      });
 
-      if (inventory.length === 0) {
+      if (!inventory) {
         throw new Error("INVENTORY_NOT_FOUND");
       }
 

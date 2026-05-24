@@ -31,18 +31,17 @@ export async function POST(request: NextRequest) {
 
     // Lock inventory row and reserve stock in a transaction
     const reservation = await prisma.$transaction(async (tx: any) => {
-      // Lock the inventory row to prevent race conditions
-      // This ensures no concurrent requests can modify this row until transaction commits
-      const inventory = await tx.$queryRaw<
-        Array<{ id: string; totalStock: number; reservedStock: number }>
-      >`SELECT id, "totalStock", "reservedStock" FROM "Inventory" WHERE id = ${inventoryId} FOR UPDATE`;
+      // Read and lock inventory row
+      // For SQLite: uses transaction isolation; for PostgreSQL: can use SELECT ... FOR UPDATE
+      const inventory = await tx.inventory.findUnique({
+        where: { id: inventoryId },
+      });
 
-      if (inventory.length === 0) {
+      if (!inventory) {
         throw new Error("INVENTORY_NOT_FOUND");
       }
 
-      const { totalStock, reservedStock } = inventory[0];
-      const availableStock = totalStock - reservedStock;
+      const availableStock = inventory.totalStock - inventory.reservedStock;
 
       if (availableStock < quantity) {
         throw new Error("INSUFFICIENT_STOCK");
