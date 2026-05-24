@@ -5,29 +5,60 @@
 @source "../lib";
 
 @theme inline {
-  --color-background: #ffffff;
+  --color-background: #f4f6fb;
   --color-foreground: #0f172a;
-  --color-primary: #1e3a8a;
+  --color-primary: #0f766e;
   --color-primary-foreground: #ffffff;
   --color-border: rgb(226 232 240);
-  --color-ring: #1e3a8a;
+  --color-ring: #0f766e;
 }
 
 * {
-  border-color: rgb(203 213 225 / 0.5);
+  border-color: rgb(226 232 240 / 0.9);
 }
 
 :root {
-  --border: 229 231 235;
+  --border: 226 232 240;
   --foreground: 15 23 42;
   --muted: 100 116 139;
-  --primary: 59 130 246;
+  --primary: 15 118 110;
   --primary-foreground: 255 255 255;
+  --surface: 255 255 255;
 }
 
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background:
+    radial-gradient(circle at top left, rgba(15, 118, 110, 0.08), transparent 30%),
+    radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 25%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+}
+
+body {
+  min-height: 100vh;
+  color: rgb(var(--foreground));
+  background: transparent;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+::selection {
+  background: rgba(15, 118, 110, 0.18);
+  color: rgb(15, 23, 42);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.5);
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 @layer utilities {
@@ -45,5 +76,21 @@ html {
 
   .bg-primary-foreground {
     background-color: rgb(255 255 255);
+  }
+
+  .allo-surface {
+    background-color: rgb(var(--surface) / 0.92);
+    backdrop-filter: blur(16px);
+  }
+
+  .allo-grid {
+    background-image:
+      linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  .text-balance {
+    text-wrap: balance;
   }
 }
