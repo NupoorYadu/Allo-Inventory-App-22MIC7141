@@ -3,7 +3,13 @@
 // API client for the frontend
 // Communicates with Next.js backend API routes
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+function getApiBase() {
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+
+  return '';
+}
 
 export interface InventoryData {
   id: string;
@@ -48,19 +54,19 @@ export interface ReservationData {
 }
 
 export async function getProducts(): Promise<ProductData[]> {
-  const res = await fetch(`${API_BASE}/api/products`);
+  const res = await fetch(`${getApiBase()}/api/products`);
   if (!res.ok) throw new Error(`Failed to fetch products: ${res.status}`);
   return res.json();
 }
 
 export async function getWarehouses() {
-  const res = await fetch(`${API_BASE}/api/warehouses`);
+  const res = await fetch(`${getApiBase()}/api/warehouses`);
   if (!res.ok) throw new Error(`Failed to fetch warehouses: ${res.status}`);
   return res.json();
 }
 
 export async function getReservations(): Promise<ReservationData[]> {
-  const res = await fetch(`${API_BASE}/api/reservations`);
+  const res = await fetch(`${getApiBase()}/api/reservations`);
   if (!res.ok) throw new Error(`Failed to fetch reservations: ${res.status}`);
   return res.json();
 }
@@ -73,7 +79,7 @@ export async function reserveInventory(
   const headers: HeadersInit = { 'Content-Type': 'application/json' };
   if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
 
-  const res = await fetch(`${API_BASE}/api/reservations`, {
+  const res = await fetch(`${getApiBase()}/api/reservations`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ inventoryId, quantity, idempotencyKey }),
@@ -89,7 +95,7 @@ export async function reserveInventory(
 }
 
 export async function confirmReservation(reservationId: string): Promise<ReservationData> {
-  const res = await fetch(`${API_BASE}/api/reservations/${reservationId}/confirm`, {
+  const res = await fetch(`${getApiBase()}/api/reservations/${reservationId}/confirm`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   });
@@ -104,7 +110,7 @@ export async function confirmReservation(reservationId: string): Promise<Reserva
 }
 
 export async function releaseReservation(reservationId: string): Promise<ReservationData> {
-  const res = await fetch(`${API_BASE}/api/reservations/${reservationId}/release`, {
+  const res = await fetch(`${getApiBase()}/api/reservations/${reservationId}/release`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   });
