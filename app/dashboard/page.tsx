@@ -260,7 +260,7 @@ export default function Dashboard() {
         productId: product.id,
         productName: product.name,
         inventoryId: inventory.id,
-        warehouseName: inventory.name,
+        warehouseName: (inventory as any).warehouse.name,
         quantity: reserveQty,
         status: 'PENDING',
         expiresAt: addMinutes(now, 10),
@@ -449,10 +449,12 @@ export default function Dashboard() {
   const warehouseMap = new Map<string, { name: string; total: number; available: number }>();
   products.forEach((p) => {
     p.inventory.forEach((inv) => {
-      if (!warehouseMap.has(inv.id)) {
-        warehouseMap.set(inv.id, { name: inv.name, total: 0, available: 0 });
+      const warehouseId = (inv as any).warehouse?.id || inv.id;
+      const warehouseName = (inv as any).warehouse?.name || 'Unknown';
+      if (!warehouseMap.has(warehouseId)) {
+        warehouseMap.set(warehouseId, { name: warehouseName, total: 0, available: 0 });
       }
-      const w = warehouseMap.get(inv.id)!;
+      const w = warehouseMap.get(warehouseId)!;
       w.total += inv.totalStock;
       w.available += getAvailableStock(inv);
     });
@@ -612,9 +614,10 @@ export default function Dashboard() {
                           <tbody>
                             {product.inventory.map((inv) => {
                               const avail = getAvailableStock(inv);
+                              const warehouseName = (inv as any).warehouse?.name || 'Unknown';
                               return (
                                 <tr key={inv.id} className="border-b border-border/40 hover:bg-white">
-                                  <td className="py-2 text-slate-700">{inv.name}</td>
+                                  <td className="py-2 text-slate-700">{warehouseName}</td>
                                   <td className="text-center font-mono text-slate-500">
                                     {inv.totalStock}
                                   </td>
