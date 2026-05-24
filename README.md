@@ -214,19 +214,22 @@ The frontend uses same-origin API calls by default. Do not set `NEXT_PUBLIC_API_
 The app is intended for Vercel + Supabase:
 
 1. Create a Supabase Postgres database.
-2. Add `DATABASE_URL` and `CRON_SECRET` in Vercel project settings.
-3. Deploy with Vercel.
-4. Run migrations against production:
+2. Copy `.env.example` to `.env.local` for local development and set `DATABASE_URL` to the Supabase connection string.
+3. Add `DATABASE_URL` and `CRON_SECRET` in Vercel project settings.
+4. Deploy with Vercel.
+5. Run migrations against production:
 
 ```bash
 npx prisma migrate deploy
 ```
 
-5. Seed only if the environment needs demo data:
+6. Seed only if the environment needs demo data:
 
 ```bash
 npm run seed
 ```
+
+For Supabase, use the pooled Postgres connection string if available, and keep the same schema name that Prisma expects. Vercel only needs the database URL and the shared cron secret; the app does not require any extra public frontend environment variables.
 
 The build script runs `prisma generate && next build` because Vercel caches dependencies and Prisma Client must be regenerated during the build.
 
