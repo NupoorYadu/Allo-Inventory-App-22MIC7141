@@ -32,7 +32,11 @@ jobs:
       - name: Validate Prisma schema
         run: npx prisma validate
 
-      - name: Check for unused code
+      - name: Validate API routes
         run: |
-          # List API routes that exist
-          ls -la app/api/**/*.ts 2>/dev/null || true
+          test -f "app/api/products/route.ts" || (echo "Missing products API" && exit 1)
+          test -f "app/api/reservations/route.ts" || (echo "Missing reservations API" && exit 1)
+          test -f "app/api/reservations/\[id\]/confirm/route.ts" || (echo "Missing confirm API" && exit 1)
+          test -f "app/api/reservations/\[id\]/release/route.ts" || (echo "Missing release API" && exit 1)
+          test -f "app/api/cron/release-expired/route.ts" || (echo "Missing cron job" && exit 1)
+
