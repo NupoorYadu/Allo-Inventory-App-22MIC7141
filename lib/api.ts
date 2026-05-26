@@ -11,6 +11,12 @@ function getApiBase() {
 export interface InventoryData {
   id: string;
   name: string;
+  sku: string;
+  category: string;
+  image: string;
+  story: string;
+  priority: "critical" | "high" | "medium" | "steady";
+  demand: number;
   productId: string;
   warehouseId: string;
   totalStock: number;
@@ -25,6 +31,12 @@ export interface InventoryData {
 export interface ProductData {
   id: string;
   name: string;
+  sku: string;
+  category: string;
+  image: string;
+  story: string;
+  priority: "critical" | "high" | "medium" | "steady";
+  demand: number;
   createdAt: string;
   inventory: InventoryData[];
 }
@@ -42,6 +54,12 @@ export interface ReservationData {
     product: {
       id: string;
       name: string;
+      sku: string;
+      category: string;
+      image: string;
+      story: string;
+      priority: "critical" | "high" | "medium" | "steady";
+      demand: number;
     };
     warehouse: {
       id: string;
