@@ -222,7 +222,7 @@ The app is intended for Vercel + Supabase:
 npx prisma migrate deploy
 ```
 
-5. Seed only if the environment needs demo data:
+5. Seed only for local development or one-time demo data:
 
 ```bash
 npm run seed
