@@ -132,14 +132,14 @@ Manual release locks the reservation and inventory rows, decrements `reservedSto
 
 Expired reservations are handled by `/api/cron/release-expired`. The cron route locks expired pending reservations, locks their inventory rows, decrements reserved stock, and marks them released.
 
-`vercel.json` is configured for every minute:
+`vercel.json` is configured for a daily cron on Vercel Hobby:
 
 ```json
 {
   "crons": [
     {
       "path": "/api/cron/release-expired",
-      "schedule": "* * * * *"
+      "schedule": "0 0 * * *"
     }
   ]
 }
