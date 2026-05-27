@@ -13,7 +13,7 @@ export default function ThemeToggle() {
       const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
       applyTheme(prefersDark ? 'dark' : 'light')
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [])
 
   function applyTheme(t: 'dark' | 'light') {
