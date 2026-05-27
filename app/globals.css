@@ -5,105 +5,45 @@
 @source "../lib";
 
 @theme inline {
-  --color-background: rgb(var(--background));
-  --color-foreground: rgb(var(--foreground));
-  --color-primary: rgb(var(--primary));
-  --color-primary-foreground: rgb(var(--primary-foreground));
-  --color-border: rgb(var(--border));
-  --color-ring: rgb(var(--ring));
+  --color-background: #ffffff;
+  --color-foreground: #0f172a;
+  --color-primary: #1e3a8a;
+  --color-primary-foreground: #ffffff;
+  --color-border: rgb(226 232 240);
+  --color-ring: #1e3a8a;
 }
 
 * {
-  border-color: rgb(var(--border) / 0.55);
+  border-color: rgb(203 213 225 / 0.5);
 }
 
 :root {
-  color-scheme: dark;
-  --background: 7 11 23;
-  --foreground: 232 238 247;
-  --muted: 136 146 172;
-  --border: 39 47 66;
-  --ring: 96 165 250;
-  --primary: 56 189 248;
-  --primary-foreground: 6 11 25;
+  --border: 229 231 235;
+  --foreground: 15 23 42;
+  --muted: 100 116 139;
+  --primary: 59 130 246;
+  --primary-foreground: 255 255 255;
 }
 
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: rgb(var(--background));
-}
-
-body {
-  min-height: 100vh;
-  color: rgb(var(--foreground));
-  background:
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 34%),
-    radial-gradient(circle at 90% 10%, rgba(167, 139, 250, 0.16), transparent 22%),
-    linear-gradient(180deg, rgb(6 11 25) 0%, rgb(8 15 32) 42%, rgb(11 16 28) 100%);
 }
 
 @layer utilities {
   .border-border {
-    border-color: rgb(var(--border));
+    border-color: rgb(226 232 240);
   }
 
   .text-primary-foreground {
-    color: rgb(var(--primary-foreground));
+    color: rgb(255 255 255);
   }
 
   .bg-primary {
-    background-color: rgb(var(--primary));
+    background-color: rgb(59 130 246);
   }
 
   .bg-primary-foreground {
-    background-color: rgb(var(--primary-foreground));
+    background-color: rgb(255 255 255);
   }
-
-  .glass-panel {
-    background: rgb(10 16 31 / 0.78);
-    border: 1px solid rgb(var(--border) / 0.72);
-    backdrop-filter: blur(24px);
-    box-shadow: 0 18px 60px rgba(1, 6, 20, 0.35);
-  }
-
-  .grid-noise {
-    background-image:
-      linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
-    background-size: 28px 28px;
-  }
-
-  .text-muted {
-    color: rgb(var(--muted));
-  }
-
-  .text-foreground {
-    color: rgb(var(--foreground));
-  }
-}
-
-::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.35);
-  border: 3px solid transparent;
-  background-clip: content-box;
-  border-radius: 999px;
-}
-
-.dark {
-  color-scheme: dark;
-}
-
-::selection {
-  background: rgba(56, 189, 248, 0.28);
-  color: white;
 }

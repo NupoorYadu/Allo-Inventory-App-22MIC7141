@@ -3,10 +3,10 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Allo Inventory',
-    template: '%s | Allo Inventory',
+    default: 'Inventory System',
+    template: '%s | Inventory System',
   },
-  description: 'An AI-enhanced multi-warehouse operations platform with realtime reservation intelligence.',
+  description: 'Multi-warehouse inventory management with concurrent reservation support',
   icons: {
     icon: '/favicon.ico',
   },
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <body className="antialiased">{children}</body>
     </html>
   );
