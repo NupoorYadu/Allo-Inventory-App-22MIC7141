@@ -21,7 +21,7 @@ function voiceRecognitionFactory() {
 }
 
 export default function FloatingAssistant() {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [insights, setInsights] = useState<any[]>([]);
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -102,8 +102,8 @@ export default function FloatingAssistant() {
 
           <div className="content">
             <div className="top">
-              <div className="big">Live AI insights</div>
-              <div className="sub">Operational intelligence and voice controls</div>
+              <div className="big">Operational copilot</div>
+              <div className="sub">Ask about stock, reservations, and concurrency</div>
             </div>
 
             <div className="insights">

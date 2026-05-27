@@ -601,20 +601,9 @@ export default function DashboardPage() {
           <div className="hero-left">
             <div className="hero-title">AI Operational Intelligence + Voice Copilot</div>
             <div className="hero-sub">{operationalInsights[0]?.summary ?? 'Realtime inventory insights and alerts'}</div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button onClick={() => setAssistantOpen(true)} className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-900 shadow-sm">
-                Open AI Chatbot
-              </button>
-              <button onClick={() => applyAssistantQuery('show low stock products')} className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white/90">
-                Show low stock
-              </button>
-              <button onClick={toggleVoice} className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white/90">
-                Start voice
-              </button>
-            </div>
           </div>
           <div className="hero-cards">
-            {operationalInsights.slice(0,3).map((insight) => (
+            {operationalInsights.slice(0, 2).map((insight) => (
               <div key={insight.title} className="ai-insight-card">
                 <div className="text-xs font-semibold">{insight.title}</div>
                 <div className="mt-1 text-sm">{insight.summary}</div>
@@ -740,7 +729,7 @@ export default function DashboardPage() {
                 <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{systemHealth.headline}</div>
                 <div className="text-sm text-slate-700">{systemHealth.summary}</div>
               </div>
-              {systemHealth.details.map((detail) => (
+              {systemHealth.details.slice(0, 2).map((detail) => (
                 <div key={detail} className="rounded border border-slate-200 bg-white p-3 text-sm text-slate-700">
                   {detail}
                 </div>
