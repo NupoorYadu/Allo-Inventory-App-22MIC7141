@@ -47,3 +47,19 @@ html {
     background-color: rgb(255 255 255);
   }
 }
+
+/* Dark theme variables override when toggled via data-theme or .dark class */
+:root[data-theme="dark"], .dark {
+  --color-background: #0a0b0f;
+  --color-foreground: #e6eef8;
+  --color-primary: #60a5fa;
+  --color-primary-foreground: #0f172a;
+  --color-border: rgb(55 65 81);
+  --color-ring: #60a5fa;
+}
+
+/* Basic body background/foreground mapping using variables */
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+}
