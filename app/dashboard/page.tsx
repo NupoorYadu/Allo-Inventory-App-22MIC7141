@@ -65,6 +65,10 @@ declare global {
     SpeechRecognition?: SpeechRecognitionConstructor;
     webkitSpeechRecognition?: SpeechRecognitionConstructor;
   }
+  interface SpeechRecognitionEvent {
+    results: ArrayLike<any>;
+    error?: string;
+  }
 }
 
 type ReserveTarget = {
@@ -235,7 +239,13 @@ export default function DashboardPage() {
   const [voiceListening, setVoiceListening] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
-  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState<boolean>(() => {
+    try {
+      return typeof window !== "undefined" && Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    } catch {
+      return false;
+    }
+  });
 
   const refresh = useCallback(async (quiet = false) => {
     const started = performance.now();
@@ -274,17 +284,8 @@ export default function DashboardPage() {
     return () => window.clearInterval(timer);
   }, [refresh]);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const speechWindow = window as Window & {
-        SpeechRecognition?: SpeechRecognitionConstructor;
-        webkitSpeechRecognition?: SpeechRecognitionConstructor;
-      };
-      setVoiceSupported(Boolean(speechWindow.SpeechRecognition || speechWindow.webkitSpeechRecognition));
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, []);
+  // voice support is determined lazily at initialization to avoid
+  // calling setState synchronously inside an effect (causes lint warning)
 
   const snapshot = useMemo<OperationsSnapshot>(
     () => ({
@@ -491,15 +492,13 @@ export default function DashboardPage() {
       setVoiceError(null);
     };
 
-    recognition.onresult = (event) => {
-      const transcript = Array.from(event.results as ArrayLike<{ isFinal?: boolean; 0: { transcript: string } }>)
-        .map((result) => result[0]?.transcript ?? "")
-        .join(" ")
-        .trim();
+    recognition.onresult = (event: any) => {
+      const resultsArray = Array.from((event as any).results as ArrayLike<any>);
+      const transcript = resultsArray.map((result) => (result[0]?.transcript ?? "")).join(" ").trim();
 
       setVoiceTranscript(transcript);
 
-      const finalResult = event.results[event.results.length - 1];
+      const finalResult = resultsArray[resultsArray.length - 1];
       if (finalResult?.isFinal && transcript) {
         const command = resolveVoiceCommand(transcript);
         if (command.type === "navigate") {
@@ -519,8 +518,8 @@ export default function DashboardPage() {
       }
     };
 
-    recognition.onerror = (event) => {
-      setVoiceError(`Voice input failed: ${event.error}`);
+    recognition.onerror = (event: any) => {
+      setVoiceError(`Voice input failed: ${event?.error ?? String(event)}`);
     };
 
     recognition.onend = () => {
@@ -597,6 +596,32 @@ export default function DashboardPage() {
             {message}
           </div>
         )}
+
+        <section className="ai-hero">
+          <div className="hero-left">
+            <div className="hero-title">AI Operational Intelligence + Voice Copilot</div>
+            <div className="hero-sub">{operationalInsights[0]?.summary ?? 'Realtime inventory insights and alerts'}</div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button onClick={() => setAssistantOpen(true)} className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-900 shadow-sm">
+                Open AI Chatbot
+              </button>
+              <button onClick={() => applyAssistantQuery('show low stock products')} className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white/90">
+                Show low stock
+              </button>
+              <button onClick={toggleVoice} className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white/90">
+                Start voice
+              </button>
+            </div>
+          </div>
+          <div className="hero-cards">
+            {operationalInsights.slice(0,3).map((insight) => (
+              <div key={insight.title} className="ai-insight-card">
+                <div className="text-xs font-semibold">{insight.title}</div>
+                <div className="mt-1 text-sm">{insight.summary}</div>
+              </div>
+            ))}
+          </div>
+        </section>
 
         <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="rounded border border-border bg-white p-4 shadow-sm">

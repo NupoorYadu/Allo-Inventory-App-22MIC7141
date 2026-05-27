@@ -1,184 +1,148 @@
 # Allo Inventory Reservation System
 
-A small multi-warehouse inventory reservation app built with Next.js App Router, Prisma, PostgreSQL, Tailwind CSS, Zod, and Recharts.
+Allo is a multi-warehouse inventory reservation platform built to show the hard parts of a real operational system: stock consistency, safe retries, release/expiry cleanup, and visible AI-assisted ops tooling.
 
-The main engineering problem is preventing overselling while a customer is away completing payment. A reservation holds stock for 10 minutes. Confirming the reservation permanently consumes stock; releasing or expiring it makes the stock available again.
+The app is intentionally small enough to understand, but the critical workflows are implemented as real transactional paths rather than mocked UI flows.
 
-## What Is Implemented
+## What the system does
 
-- Product listing with per-warehouse inventory
-- Reservation checkout page with countdown timers
-- Confirm and release actions
-- Atomic reservation writes in PostgreSQL transactions
-- Idempotency keys for safe retries
-- Lightweight polling for inventory updates
-- Vercel cron endpoint for expired reservations
-- Real concurrent stress test UI
-- Minimal analytics dashboard with warehouse utilization
-- GitHub Actions CI for typecheck, build, and Prisma validation
+- Displays inventory by product and warehouse
+- Lets a customer reserve stock for a 10-minute payment window
+- Confirms or releases reservations safely
+- Reclaims expired reservations through a cron job
+- Shows live operational analytics on the dashboard
+- Exposes a deterministic AI assistant for inventory questions
+- Exposes voice control for common dashboard actions
+- Stress tests the reservation endpoint under concurrency
 
-## Stack
+## Architecture
 
-- Next.js App Router
-- TypeScript
-- Prisma
-- PostgreSQL, tested with Supabase
-- Tailwind CSS
-- Zod
-- date-fns
-- Recharts
+The app is organized around a few simple boundaries:
 
-I kept the architecture deliberately simple: `app/` for routes and UI, `lib/` for small shared helpers, and `prisma/` for schema/seed data. There are no repositories, services, queues, or extra layers because the transactional boundary is small enough to understand directly in the route handlers.
+- `app/` for routes and UI
+- `lib/` for data access and operational reasoning helpers
+- `prisma/` for schema, migrations, and seed data
+- `components/` for shared UI pieces, including the floating AI assistant
+- `scripts/` for local validation helpers
 
-## Data Model
+I kept the codebase compact on purpose. The transactional logic lives close to the API routes because the main correctness problem is inventory mutation, not framework abstraction.
 
-```prisma
-Product {
-  id
-  name
-  createdAt
-}
+## Concurrency strategy
 
-Warehouse {
-  id
-  name
-  createdAt
-}
+The reservation flow is the core of the product.
 
-Inventory {
-  id
-  productId
-  warehouseId
-  totalStock
-  reservedStock
-  @@unique([productId, warehouseId])
-}
+When `POST /api/reservations` runs, it does three important things:
 
-Reservation {
-  id
-  inventoryId
-  quantity
-  status: PENDING | CONFIRMED | RELEASED
-  expiresAt
-  createdAt
-}
+1. Locks the idempotency key when one is provided.
+2. Mutates `reservedStock` inside a database transaction.
+3. Rejects the request with `409 Conflict` when stock would be oversold.
 
-IdempotencyKey {
-  key
-  result
-  createdAt
-}
-```
+That means the application never relies on frontend state to decide stock availability. The database is the source of truth.
 
-Available stock is always computed as:
+Idempotency is also handled server-side. If a client retries the same request with the same `Idempotency-Key`, the stored response is replayed instead of creating a duplicate reservation.
 
-```ts
-availableStock = totalStock - reservedStock
-```
+## Confirmation, release, and expiry
 
-## API
+Reservations follow a simple lifecycle:
 
-| Method | Route | Purpose |
-| --- | --- | --- |
-| `GET` | `/api/products` | Products with warehouse inventory and available stock |
-| `GET` | `/api/warehouses` | Warehouse list |
-| `GET` | `/api/reservations` | Recent reservations |
-| `POST` | `/api/reservations` | Create a 10-minute reservation |
-| `POST` | `/api/reservations/:id/confirm` | Confirm payment and consume stock |
-| `POST` | `/api/reservations/:id/release` | Release a pending reservation |
-| `GET` | `/api/cron/release-expired` | Release expired pending reservations |
+- `PENDING` when stock is reserved
+- `CONFIRMED` when payment is completed
+- `RELEASED` when inventory is returned to stock
 
-## Concurrency Design
+Confirming a reservation decrements total stock and reserved stock in a transaction. Releasing a reservation puts the reserved units back. Expired reservations are reclaimed by the cron route.
 
-The important route is `POST /api/reservations`.
+The important point is that each state transition is backed by database writes, not optimistic UI updates.
 
-Inside a Prisma transaction it:
+## AI assistant
 
-1. optionally locks the idempotency key with `pg_advisory_xact_lock`
-2. checks whether the idempotency response already exists
-3. atomically increments `reservedStock` with a conditional `UPDATE ... RETURNING`
-4. checks `totalStock - reservedStock`
-5. creates the reservation
-6. stores the idempotency response
+The AI experience is deliberately visible and operational rather than decorative.
 
-I chose PostgreSQL transactional writes instead of Redis locks because the inventory state already lives in Postgres. Keeping the reservation decision, stock mutation, and idempotency write inside one transaction makes the correctness story much easier to defend.
+Included features:
 
-I verified the core concurrency case against the real API:
+- Floating AI copilot on every major page
+- AI insights card on the dashboard
+- Deterministic natural-language inventory queries
+- Voice command parsing for common operational actions
+- AI summaries for inventory, reservations, and concurrency behavior
+- AI explanation layer for the stress-test page
 
-```txt
-two concurrent requests for stock=1
-result: one 201 Created, one 409 Conflict
-reservations created: 1
-```
+The assistant is powered by local reasoning helpers in `lib/ops-intelligence.ts`. I chose a deterministic layer instead of an external LLM for this project because the product needs to be reliable, cheap to run, and easy to validate during an interview.
 
-## Confirmation Flow
+## Voice commands
 
-Confirming a reservation also happens in a transaction:
+Voice input is implemented with the browser Web Speech API.
 
-1. lock the reservation row
-2. verify it exists
-3. verify it is still `PENDING`
-4. verify it has not expired
-5. lock the inventory row
-6. decrement `totalStock`
-7. decrement `reservedStock`
-8. mark the reservation `CONFIRMED`
+Supported examples:
 
-If the reservation expired before confirmation, the API returns `410`.
+- show low stock inventory
+- open analytics
+- run concurrency simulator
+- show reservations
 
-## Release And Expiry
+The UI shows transcript updates, a listening state, and a visible mic button so the voice feature is obvious, not hidden.
 
-Manual release locks the reservation and inventory rows, decrements `reservedStock`, and marks the reservation `RELEASED`.
+## Realtime updates
 
-Expired reservations are handled by `/api/cron/release-expired`. The cron route locks expired pending reservations, locks their inventory rows, decrements reserved stock, and marks them released.
+The dashboard uses lightweight polling so the UI stays fresh without extra infrastructure. That keeps the demo reliable and easy to deploy.
 
-`vercel.json` is configured for a daily cron on Vercel Hobby:
+I chose polling over realtime subscriptions because the app is small, the operational data set is modest, and the assignment benefits more from predictable behavior than from a more complex push setup.
 
-```json
-{
-  "crons": [
-    {
-      "path": "/api/cron/release-expired",
-      "schedule": "0 0 * * *"
-    }
-  ]
-}
-```
+## Stress testing
 
-Vercel Hobby accounts only allow daily cron jobs. For a true every-minute production cron, deploy this on a plan that supports that cadence, or run the cleanup from an external scheduler.
+The stress-test page sends real concurrent reservation requests to the backend.
 
-If `CRON_SECRET` is set, the cron endpoint expects:
+The important verification points are:
 
-```txt
-Authorization: Bearer <CRON_SECRET>
-```
+- no overselling occurs
+- failed requests return `409`
+- repeated retries with the same idempotency key return the same reservation
+- concurrency behavior is explained visually in the UI
 
-## Idempotency
+I verified the deployed API with live burst tests:
 
-Clients can send:
+- `10 x 1` requests succeeded without breaking the reservation flow
+- `50 x 5` requests produced `409 Conflict` responses when stock was exhausted
+- duplicate `Idempotency-Key` requests returned the same reservation response
 
-```txt
-Idempotency-Key: <uuid>
-```
+## Cron cleanup
 
-The API stores the original response and replays it on retry. This applies to both successful reservations and insufficient-stock `409` responses. A PostgreSQL advisory transaction lock prevents two concurrent retries with the same key from creating duplicate reservations.
+Expired pending reservations are released by a cron route:
 
-## Frontend
+- route: `/api/cron/release-expired`
+- purpose: reclaim reservations that were never confirmed
+- deployment: configured in `vercel.json`
 
-The dashboard at `/dashboard` includes:
+On Vercel Hobby, cron cadence is limited, so this project uses the schedule supported by that plan. For higher-frequency cleanup, move the job to a plan or scheduler that supports it.
 
-- Products tab with warehouse stock and reserve actions
-- Reservation checkout tab with countdowns, confirm/release buttons, badges, and activity timeline
-- Analytics tab with inventory metrics and warehouse utilization
-- Stress Test tab that sends real concurrent `POST /api/reservations` requests
+## Frontend experience
 
-Stock refreshes every 5 seconds with lightweight polling. I chose polling over Supabase Realtime because it keeps the demo stateless and simple, and a few seconds of delay is acceptable for this assignment-sized admin view.
+The dashboard is built to feel like an operational tool, not a demo page.
 
-## Local Setup
+What I focused on:
+
+- strong hierarchy in the AI sections
+- consistent spacing and card sizing
+- readable stock and reservation tables
+- visible alerts and summary states
+- responsive behavior for smaller screens
+- a premium floating AI control that appears everywhere
+
+The AI and voice features are intentionally placed where the reviewer will see them immediately.
+
+## Validation
+
+These checks passed in the current workspace:
+
+- `npm run lint`
+- `npm run typecheck`
+- `npm run build`
+- live API concurrency tests against the deployed environment
+- idempotency retry verification against the deployed environment
+
+## Local setup
 
 ```bash
 npm install
-cp .env.example .env
 npx prisma migrate deploy
 npm run seed
 npm run dev
@@ -186,71 +150,58 @@ npm run dev
 
 Open:
 
-```txt
-http://localhost:3000
+```text
+http://localhost:3000/dashboard
 ```
 
 Useful commands:
 
 ```bash
 npm run lint
+npm run typecheck
 npm run build
-npx prisma validate
+npm run test:concurrency
+npm run demo:voice
 ```
-
-On Windows, stop the dev server before running a fresh production build if Prisma reports that its query engine DLL is locked.
-
-## Environment Variables
-
-```env
-DATABASE_URL="postgresql://..."
-CRON_SECRET="optional-shared-secret"
-```
-
-The frontend uses same-origin API calls by default. Do not set `NEXT_PUBLIC_API_URL` unless the frontend and API are intentionally hosted on different origins.
 
 ## Deployment
 
-The app is intended for Vercel + Supabase:
+The intended deployment shape is:
 
-1. Create a Supabase Postgres database.
-2. Add `DATABASE_URL` and `CRON_SECRET` in Vercel project settings.
-3. Deploy with Vercel.
-4. Run migrations against production:
+- Next.js app on Vercel
+- PostgreSQL on Supabase
+- Prisma migrations applied in production
+- cron cleanup configured in Vercel
 
-```bash
-npx prisma migrate deploy
-```
+Before production use, verify:
 
-5. Seed only for local development or one-time demo data:
-
-```bash
-npm run seed
-```
-
-The build script runs `prisma generate && next build` because Vercel caches dependencies and Prisma Client must be regenerated during the build.
+- `DATABASE_URL` is correct
+- cron access is configured
+- production build succeeds in Vercel
+- the deployed dashboard loads `/api/products` and `/api/reservations` successfully
 
 ## CI
 
-GitHub Actions runs on `main`, `master`, and `develop`:
+A production-ready workflow should run:
 
-- `npm ci`
-- `npm run lint`
-- `npm run typecheck`
-- `npm run build`
-- `npx prisma validate`
-- route presence checks for the main APIs
+- lint
+- typecheck
+- Prisma validate
+- build
+
+If you use GitHub Actions, keep the workflow small and predictable. The repo should validate the same way locally and in CI.
 
 ## Tradeoffs
 
-- Reservation status is stored as a string instead of a Prisma enum. An enum would be slightly stricter, but the current model is compact and easy to migrate.
-- Activity timeline is derived from reservation state and timestamps rather than a separate event table. For a real audit trail, I would add a `ReservationEvent` table.
-- Polling is used instead of Supabase Realtime to avoid extra moving parts.
-- The stress test intentionally creates real reservations. It is an internal tool and should be used on demo stock or reset afterward.
+- Polling is simpler than realtime subscriptions and is enough for this workload.
+- Deterministic AI is less flashy than an LLM, but it is more reliable and easier to test.
+- The stress-test page is intentionally operational and should be used carefully against demo data.
+- The app favors correctness and clarity over abstraction-heavy architecture.
 
-## Future Improvements
+## Future improvements
 
-- Add a `ReservationEvent` table for a durable lifecycle audit trail.
-- Move expiry cleanup to a dedicated worker if traffic grows.
-- Add automated integration tests for the concurrent reservation path.
-- Add a small admin-only guard around the stress test page before using it outside a demo environment.
+- Add a durable reservation event log for auditing
+- Add a small admin guard around the stress-test page
+- Add browser automation for the dashboard flows
+- Add true realtime subscriptions if the product grows beyond demo scale
+- Add a structured alert feed for inventory anomalies

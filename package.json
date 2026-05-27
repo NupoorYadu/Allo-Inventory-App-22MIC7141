@@ -9,7 +9,10 @@
     "start": "next start",
     "seed": "tsx ./prisma/seed.ts",
     "lint": "eslint . --ext .ts,.tsx --max-warnings=0",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:playwright": "playwright test --config test/playwright.config.ts",
+    "demo:voice": "node --experimental-specifier-resolution=node ./scripts/voice-demo.mjs",
+    "test:concurrency": "node --experimental-specifier-resolution=node ./scripts/concurrency-test.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.20.0",
@@ -24,6 +27,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
