@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import {
@@ -235,6 +235,8 @@ export default function DashboardPage() {
   const [voiceTranscript, setVoiceTranscript] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [voiceSupported, setVoiceSupported] = useState(false);
+  const tabContentRef = useRef<HTMLDivElement | null>(null);
+  const firstTabRender = useRef(true);
 
   const refresh = useCallback(async (quiet = false) => {
     const started = performance.now();
@@ -283,6 +285,15 @@ export default function DashboardPage() {
       return () => window.clearTimeout(id);
     }
   }, []);
+
+  useEffect(() => {
+    if (firstTabRender.current) {
+      firstTabRender.current = false;
+      return;
+    }
+
+    tabContentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [tab]);
 
   const snapshot = useMemo<OperationsSnapshot>(
     () => ({
@@ -719,6 +730,8 @@ export default function DashboardPage() {
             </div>
           </div>
         </section>
+
+        <div ref={tabContentRef} />
 
         {loading ? (
           <div className="flex h-64 items-center justify-center rounded border border-border bg-white shadow-sm">
