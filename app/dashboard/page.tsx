@@ -229,7 +229,6 @@ export default function DashboardPage() {
   const [stressCount, setStressCount] = useState(50);
   const [stressRunning, setStressRunning] = useState(false);
   const [stressResults, setStressResults] = useState<StressResult[] | null>(null);
-  const [assistantOpen, setAssistantOpen] = useState(true);
   const [assistantDraft, setAssistantDraft] = useState("show low stock products");
   const [assistantQuery, setAssistantQuery] = useState("show low stock products");
   const [voiceListening, setVoiceListening] = useState(false);
@@ -565,13 +564,6 @@ export default function DashboardPage() {
               aria-label="Refresh inventory"
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
-            </button>
-            <button
-              onClick={() => setAssistantOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700 transition-colors hover:bg-white"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              AI Ops Copilot
             </button>
             <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-400">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
@@ -1117,98 +1109,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
-      <div className="fixed bottom-4 right-4 z-50">
-        {!assistantOpen ? (
-          <button
-            onClick={() => setAssistantOpen(true)}
-            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-slate-900/20"
-          >
-            <Sparkles className="h-4 w-4" />
-            AI Ops Copilot
-          </button>
-        ) : (
-          <div className="w-[min(420px,calc(100vw-2rem))] rounded-xl border border-slate-200 bg-white shadow-2xl shadow-slate-900/10">
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-              <div>
-                <div className="text-sm font-semibold">AI Ops Copilot</div>
-                <div className="text-xs text-slate-500">Operational intelligence, voice, and live inventory analysis</div>
-              </div>
-              <button onClick={() => setAssistantOpen(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="max-h-[72vh] space-y-4 overflow-y-auto px-4 py-4">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ask the operations assistant</div>
-                  <button onClick={() => speakText(`${assistantResult.title}. ${assistantResult.summary}`)} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-900">
-                    <Volume2 className="h-3.5 w-3.5" />
-                    Speak
-                  </button>
-                </div>
-                <div className="mb-2 text-sm font-medium text-slate-900">{assistantResult.summary}</div>
-                <div className="text-sm text-slate-600">{assistantResult.detail}</div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button onClick={() => setTab(assistantResult.focus)} className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-medium text-white">
-                    Focus {assistantResult.focus}
-                  </button>
-                  <button onClick={() => applyAssistantQuery(assistantResult.suggestedQuery)} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700">
-                    Try: {assistantResult.suggestedQuery}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Voice control</div>
-                <div className="rounded-lg border border-slate-200 p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm text-slate-700">{voiceSupported ? (voiceListening ? "Listening for a command..." : "Press the mic and speak an operation") : "Voice recognition is unavailable in this browser"}</div>
-                    <button
-                      onClick={toggleVoice}
-                      disabled={!voiceSupported}
-                      className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium ${voiceListening ? "bg-red-50 text-red-700" : "bg-slate-900 text-white"} disabled:cursor-not-allowed disabled:opacity-50`}
-                    >
-                      <Mic className="h-3.5 w-3.5" />
-                      {voiceListening ? "Stop" : "Listen"}
-                    </button>
-                  </div>
-                  {voiceTranscript && <div className="mt-2 rounded bg-slate-50 px-3 py-2 text-xs text-slate-600">{voiceTranscript}</div>}
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Operational signals</div>
-                <div className="space-y-2">
-                  {assistantResult.highlights.slice(0, 4).map((item) => (
-                    <div key={item} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                      {item}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Quick prompts</div>
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    "Which products are low in stock?",
-                    "Which warehouse has highest reservation failures?",
-                    "Show reservations expiring soon",
-                    "Show failed concurrency attempts",
-                    "Show system health",
-                  ].map((item) => (
-                    <button key={item} onClick={() => applyAssistantQuery(item)} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600 hover:bg-white">
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
