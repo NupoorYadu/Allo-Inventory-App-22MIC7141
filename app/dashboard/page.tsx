@@ -4,6 +4,19 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   AlertTriangle,
   ArrowRight,
   BarChart3,
@@ -70,6 +83,13 @@ declare global {
 type ReserveTarget = {
   product: ProductData;
   inventory: ProductData["inventory"][number];
+};
+
+type AssistantMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  sources?: string[];
 };
 
 function statusVariant(status: ReservationData["status"]): "success" | "warning" | "muted" {
@@ -231,6 +251,14 @@ export default function DashboardPage() {
   const [stressResults, setStressResults] = useState<StressResult[] | null>(null);
   const [assistantDraft, setAssistantDraft] = useState("show low stock products");
   const [assistantQuery, setAssistantQuery] = useState("show low stock products");
+  const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([
+    {
+      id: "welcome",
+      role: "assistant",
+      content: "Ask me about live stock, reservations, warehouse pressure, or concurrency. I’ll answer from the current inventory snapshot.",
+      sources: ["Products", "Reservations", "Warehouses"],
+    },
+  ]);
   const [voiceListening, setVoiceListening] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
@@ -331,6 +359,42 @@ export default function DashboardPage() {
     return Array.from(map.values());
   }, [products]);
 
+  const reservationStatusData = useMemo(
+    () => [
+      { name: "Pending", value: metrics.pending, fill: "#f59e0b" },
+      { name: "Confirmed", value: metrics.confirmed, fill: "#10b981" },
+      { name: "Released", value: metrics.released, fill: "#64748b" },
+    ],
+    [metrics.confirmed, metrics.pending, metrics.released]
+  );
+
+  const topProductsData = useMemo(
+    () =>
+      products
+        .map((product) => ({
+          name: product.name,
+          available: product.inventory.reduce((sum, item) => sum + item.availableStock, 0),
+          reserved: product.inventory.reduce((sum, item) => sum + item.reservedStock, 0),
+        }))
+        .sort((left, right) => right.available - left.available)
+        .slice(0, 6),
+    [products]
+  );
+
+  const warehouseUtilizationData = useMemo(
+    () =>
+      warehouseChartData.map((warehouse) => {
+        const total = warehouse.available + warehouse.reserved;
+        return {
+          name: warehouse.name,
+          available: warehouse.available,
+          reserved: warehouse.reserved,
+          reservedPercent: total ? Math.round((warehouse.reserved / total) * 100) : 0,
+        };
+      }),
+    [warehouseChartData]
+  );
+
   const stressTarget = products
     .flatMap((product) => product.inventory.map((inventory) => ({ product, inventory })))
     .find((item) => item.inventory.id === stressInventoryId);
@@ -367,7 +431,25 @@ export default function DashboardPage() {
 
     if (!next) return;
 
+    const result = answerOperationalQuery(next, snapshot);
     const command = resolveVoiceCommand(next);
+    const stamp = Date.now();
+
+    setAssistantMessages((current) => {
+      const nextMessages: AssistantMessage[] = [
+        ...current,
+        { id: `user-${stamp}`, role: "user", content: next },
+        {
+          id: `assistant-${stamp}`,
+          role: "assistant",
+          content: `${result.summary} ${result.detail}`,
+          sources: result.highlights.slice(0, 4),
+        },
+      ];
+
+      return nextMessages.slice(-8);
+    });
+
     if (command.type === "navigate") {
       setTab(command.tab);
       if (command.speak) speakText(command.speak);
@@ -609,8 +691,27 @@ export default function DashboardPage() {
           <div className="rounded border border-border bg-white p-4 shadow-sm">
             <div className="mb-3 flex items-center gap-2 text-sm font-medium">
               <Sparkles className="h-4 w-4 text-slate-500" />
-              AI command center
+              AI chat copilot
             </div>
+            <div className="mb-3 max-h-60 space-y-3 overflow-y-auto rounded border border-slate-200 bg-slate-50 p-3">
+              {assistantMessages.map((message) => (
+                <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm shadow-sm ${message.role === "user" ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-700"}`}>
+                    <div>{message.content}</div>
+                    {message.sources?.length ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {message.sources.map((source) => (
+                          <span key={source} className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-500">
+                            {source}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <div className="grid gap-3 md:grid-cols-[1fr_176px_120px]">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -620,7 +721,7 @@ export default function DashboardPage() {
                   onKeyDown={(event) => {
                     if (event.key === "Enter") applyAssistantQuery(assistantDraft);
                   }}
-                  placeholder="Ask: Which products are low in stock?"
+                  placeholder="Ask about stock, reservations, or warehouses"
                   className="h-10 w-full rounded border border-border bg-white pl-9 pr-3 text-sm outline-none transition-shadow focus:shadow-[0_0_0_3px_rgba(15,23,42,0.06)]"
                 />
               </div>
@@ -629,7 +730,7 @@ export default function DashboardPage() {
                 className="inline-flex h-10 items-center justify-center gap-2 rounded-sm bg-slate-900 px-3 text-sm font-medium text-white transition-opacity hover:opacity-90"
               >
                 <ArrowRight className="h-4 w-4" />
-                Ask AI
+                Send
               </button>
               <button
                 onClick={toggleVoice}
@@ -886,7 +987,7 @@ export default function DashboardPage() {
 
             {tab === "analytics" && (
               <section className="space-y-4">
-                <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   {[
                     ["Total inventory", metrics.totalStock.toLocaleString()],
                     ["Reserved inventory", metrics.reservedStock.toLocaleString()],
@@ -898,6 +999,49 @@ export default function DashboardPage() {
                       <div className="font-mono text-2xl font-semibold">{value}</div>
                     </div>
                   ))}
+                </div>
+
+                <div className="grid gap-4 xl:grid-cols-3">
+                  <div className="rounded border border-border bg-white p-4 shadow-sm xl:col-span-1">
+                    <div className="mb-4 text-sm font-medium">Reservation status</div>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={reservationStatusData}
+                            dataKey="value"
+                            nameKey="name"
+                            innerRadius={54}
+                            outerRadius={84}
+                            paddingAngle={4}
+                          >
+                            {reservationStatusData.map((entry) => (
+                              <Cell key={entry.name} fill={entry.fill} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  <div className="rounded border border-border bg-white p-4 shadow-sm xl:col-span-2">
+                    <div className="mb-4 text-sm font-medium">Top products by available stock</div>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={topProductsData} margin={{ top: 6, right: 12, bottom: 20, left: 8 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                          <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={52} />
+                          <YAxis tick={{ fontSize: 11 }} />
+                          <Tooltip />
+                          <Legend />
+                          <Bar dataKey="available" name="Available" fill="#0f172a" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="reserved" name="Reserved" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
@@ -918,27 +1062,18 @@ export default function DashboardPage() {
                       <BarChart3 className="h-4 w-4 text-slate-400" />
                       Warehouse utilization
                     </div>
-                    <div className="space-y-3">
-                      {warehouseChartData.map((warehouse) => {
-                        const total = warehouse.available + warehouse.reserved;
-                        const reservedPercent = total ? Math.round((warehouse.reserved / total) * 100) : 0;
-
-                        return (
-                          <div key={warehouse.name} className="rounded border border-slate-200 bg-slate-50 p-3">
-                            <div className="mb-2 flex items-center justify-between text-sm">
-                              <span className="font-medium text-slate-800">{warehouse.name}</span>
-                              <span className="font-mono text-xs text-slate-500">{reservedPercent}% reserved</span>
-                            </div>
-                            <div className="h-2 overflow-hidden rounded-full bg-slate-200">
-                              <div className="h-full rounded-full bg-amber-500" style={{ width: `${reservedPercent}%` }} />
-                            </div>
-                            <div className="mt-2 flex justify-between text-xs text-slate-500">
-                              <span>{warehouse.available.toLocaleString()} available</span>
-                              <span>{warehouse.reserved.toLocaleString()} reserved</span>
-                            </div>
-                          </div>
-                        );
-                      })}
+                    <div className="h-72">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={warehouseUtilizationData} margin={{ top: 6, right: 12, bottom: 20, left: 8 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                          <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-20} textAnchor="end" height={52} />
+                          <YAxis tick={{ fontSize: 11 }} />
+                          <Tooltip />
+                          <Legend />
+                          <Bar dataKey="available" name="Available" stackId="warehouse" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="reserved" name="Reserved" stackId="warehouse" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
                     </div>
                   </div>
                 </div>
