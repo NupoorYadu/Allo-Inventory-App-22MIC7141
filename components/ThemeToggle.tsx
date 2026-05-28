@@ -31,7 +31,7 @@ export default function ThemeToggle() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed bottom-4 left-4 z-50">
       <button
         aria-label="Toggle theme"
         className="px-3 py-2 rounded border bg-white text-sm dark:bg-gray-800 dark:text-white"
