@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import ThemeToggle from '../components/ThemeToggle';
-import FloatingAssistant from '../components/FloatingAssistant';
 
 export const metadata: Metadata = {
   title: {
@@ -19,7 +18,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="antialiased">{children}
         <ThemeToggle />
-        <FloatingAssistant />
       </body>
     </html>
   );
