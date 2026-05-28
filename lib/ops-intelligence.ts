@@ -227,6 +227,64 @@ function matchesReservation(reservation: ReservationData, query: string) {
   );
 }
 
+function matchScore(source: string, tokens: string[]) {
+  if (!source || !tokens.length) return 0;
+
+  const normalized = normalize(source);
+  let score = 0;
+
+  for (const token of tokens) {
+    if (normalized.includes(token)) {
+      score += token.length >= 6 ? 3 : 2;
+    } else if (token.length >= 4 && normalized.includes(token.slice(0, 4))) {
+      score += 1;
+    }
+  }
+
+  return score;
+}
+
+function rankProducts(products: ProductData[], query: string) {
+  const tokens = buildSearchTokens(query);
+
+  return products
+    .map((product) => {
+      const warehouseNames = product.inventory.map((item) => item.warehouse.name).join(" ");
+      const total = product.inventory.reduce((sum, item) => sum + item.totalStock, 0);
+      const available = product.inventory.reduce((sum, item) => sum + item.availableStock, 0);
+      const reserved = product.inventory.reduce((sum, item) => sum + item.reservedStock, 0);
+
+      const score =
+        matchScore(product.name, tokens) +
+        matchScore(warehouseNames, tokens) +
+        matchScore(productCategory(product.name), tokens) +
+        (available === 0 ? 2 : available <= 5 ? 1 : 0) +
+        (reserved > 0 ? 1 : 0);
+
+      return { product, total, available, reserved, score };
+    })
+    .sort((left, right) => right.score - left.score || right.available - left.available);
+}
+
+function rankReservations(reservations: ReservationData[], query: string) {
+  const tokens = buildSearchTokens(query);
+
+  return reservations
+    .map((reservation) => {
+      const productName = reservation.inventory?.product.name ?? "";
+      const warehouseName = reservation.inventory?.warehouse.name ?? "";
+      const score =
+        matchScore(productName, tokens) +
+        matchScore(warehouseName, tokens) +
+        matchScore(reservation.status, tokens) +
+        matchScore(reservation.id, tokens) +
+        (reservation.status === "PENDING" ? 2 : reservation.status === "CONFIRMED" ? 1 : 0);
+
+      return { reservation, score };
+    })
+    .sort((left, right) => right.score - left.score);
+}
+
 function queryIntent(query: string) {
   const normalized = normalize(query);
 
@@ -512,24 +570,45 @@ export function answerOperationalQuery(query: string, snapshot: OperationsSnapsh
   const productMatches = snapshot.products.filter((product) => matchesProduct(product, query)).slice(0, 6);
   const reservationMatches = snapshot.reservations.filter((reservation) => matchesReservation(reservation, query)).slice(0, 8);
   const maybeWarehouse = warehouses.find((warehouse) => normalize(query).includes(normalize(warehouse.name)));
+  const rankedProducts = rankProducts(snapshot.products, query).slice(0, 6);
+  const rankedReservations = rankReservations(snapshot.reservations, query).slice(0, 8);
+  const bestProduct = rankedProducts[0]?.product ?? null;
+  const bestReservation = rankedReservations[0]?.reservation ?? null;
 
   return {
-    title: productMatches.length || reservationMatches.length ? "Natural language search" : "No direct match found",
+    title: productMatches.length || reservationMatches.length ? "Natural language search" : "Best live matches",
     summary: productMatches.length
       ? `${productMatches.length} product${productMatches.length === 1 ? "" : "s"} matched the request.`
       : reservationMatches.length
         ? `${reservationMatches.length} reservation${reservationMatches.length === 1 ? "" : "s"} matched the request.`
-        : "I could not find a direct match, but the command can be refined with product, warehouse, or status keywords.",
+        : bestProduct
+          ? `I did not find an exact match, but the closest live product is ${bestProduct.name}.`
+          : bestReservation
+            ? `I did not find an exact match, but the closest live reservation is ${bestReservation.inventory?.product.name ?? "a reservation"}.`
+            : "I could not find a direct match, so I’m surfacing the nearest live inventory records.",
     detail: maybeWarehouse
       ? `The query appears to target ${maybeWarehouse.name}, so I aligned the results with that warehouse.`
-      : "The assistant used semantic inventory matching across products, reservations, and warehouses.",
-    focus: productMatches.length ? "products" : reservationMatches.length ? "reservations" : "analytics",
-    suggestedQuery: productMatches.length ? "show low stock products" : reservationMatches.length ? "show expiring reservations" : "which warehouse has highest reservation failures",
-    productMatches,
-    reservationMatches,
+      : productMatches.length || reservationMatches.length
+        ? "The assistant used semantic inventory matching across products, reservations, and warehouses."
+        : "This is a best-effort retrieval answer. Ask in your own words and I’ll keep grounding the reply in live inventory data.",
+    focus: productMatches.length ? "products" : reservationMatches.length ? "reservations" : bestProduct ? "products" : "analytics",
+    suggestedQuery: productMatches.length
+      ? "show low stock products"
+      : reservationMatches.length
+        ? "show expiring reservations"
+        : bestProduct
+          ? `show ${bestProduct.name}`
+          : bestReservation
+            ? `show ${bestReservation.inventory?.warehouse.name ?? "warehouse"} reservations`
+            : "which warehouse has highest reservation failures",
+    productMatches: productMatches.length ? productMatches : rankedProducts.slice(0, 5).map((signal) => signal.product),
+    reservationMatches: reservationMatches.length ? reservationMatches : rankedReservations.slice(0, 5).map((signal) => signal.reservation),
     highlights: [
       ...productMatches.slice(0, 3).map((product) => `${product.name} matches the request.`),
       ...reservationMatches.slice(0, 3).map((reservation) => `${reservation.inventory?.product.name ?? "Unknown product"} in ${reservation.inventory?.warehouse.name ?? "Unknown warehouse"} matched.`),
+      ...(!productMatches.length && !reservationMatches.length
+        ? rankedProducts.slice(0, 2).map((signal) => `${signal.product.name}: ${signal.available} available, ${signal.reserved} reserved.`)
+        : []),
     ],
   };
 }
