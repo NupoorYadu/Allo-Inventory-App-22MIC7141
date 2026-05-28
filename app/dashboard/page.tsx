@@ -264,6 +264,7 @@ export default function DashboardPage() {
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const [voiceSupported, setVoiceSupported] = useState(false);
   const tabContentRef = useRef<HTMLDivElement | null>(null);
+  const assistantThreadEndRef = useRef<HTMLDivElement | null>(null);
   const firstTabRender = useRef(true);
 
   const refresh = useCallback(async (quiet = false) => {
@@ -322,6 +323,10 @@ export default function DashboardPage() {
 
     tabContentRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [tab]);
+
+  useEffect(() => {
+    assistantThreadEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [assistantMessages]);
 
   const snapshot = useMemo<OperationsSnapshot>(
     () => ({
@@ -693,7 +698,7 @@ export default function DashboardPage() {
               <Sparkles className="h-4 w-4 text-slate-500" />
               AI chat copilot
             </div>
-            <div className="mb-3 max-h-60 space-y-3 overflow-y-auto rounded border border-slate-200 bg-slate-50 p-3">
+            <div className="mb-3 h-80 space-y-3 overflow-y-auto rounded border border-slate-200 bg-slate-50 p-3">
               {assistantMessages.map((message) => (
                 <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div className={`max-w-[88%] rounded-2xl px-3 py-2 text-sm shadow-sm ${message.role === "user" ? "bg-slate-900 text-white" : "border border-slate-200 bg-white text-slate-700"}`}>
@@ -710,6 +715,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
               ))}
+              <div ref={assistantThreadEndRef} />
             </div>
 
             <div className="grid gap-3 md:grid-cols-[1fr_176px_120px]">
