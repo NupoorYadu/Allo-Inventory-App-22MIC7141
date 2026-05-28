@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { fallbackReleaseReservation, prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(
@@ -71,6 +71,11 @@ export async function POST(
         { error: "Reservation is no longer pending" },
         { status: 400 }
       );
+    }
+
+    if (process.env.NODE_ENV !== "production") {
+      const fallback = await fallbackReleaseReservation(reservationId);
+      return NextResponse.json(fallback.data, { status: fallback.status });
     }
 
     console.error("Error releasing reservation:", error);

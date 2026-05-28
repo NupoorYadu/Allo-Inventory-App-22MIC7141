@@ -65,10 +65,6 @@ declare global {
     SpeechRecognition?: SpeechRecognitionConstructor;
     webkitSpeechRecognition?: SpeechRecognitionConstructor;
   }
-  interface SpeechRecognitionEvent {
-    results: ArrayLike<any>;
-    error?: string;
-  }
 }
 
 type ReserveTarget = {
@@ -239,13 +235,7 @@ export default function DashboardPage() {
   const [voiceListening, setVoiceListening] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState("");
   const [voiceError, setVoiceError] = useState<string | null>(null);
-  const [voiceSupported, setVoiceSupported] = useState<boolean>(() => {
-    try {
-      return typeof window !== "undefined" && Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
-    } catch {
-      return false;
-    }
-  });
+  const [voiceSupported, setVoiceSupported] = useState(false);
 
   const refresh = useCallback(async (quiet = false) => {
     const started = performance.now();
@@ -284,8 +274,16 @@ export default function DashboardPage() {
     return () => window.clearInterval(timer);
   }, [refresh]);
 
-  // voice support is determined lazily at initialization to avoid
-  // calling setState synchronously inside an effect (causes lint warning)
+  useEffect(() => {
+    try {
+      const supported = Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+      const id = window.setTimeout(() => setVoiceSupported(supported), 0);
+      return () => window.clearTimeout(id);
+    } catch {
+      const id = window.setTimeout(() => setVoiceSupported(false), 0);
+      return () => window.clearTimeout(id);
+    }
+  }, []);
 
   const snapshot = useMemo<OperationsSnapshot>(
     () => ({

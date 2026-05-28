@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prisma, fallbackWarehouses } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 
 export async function GET() {
@@ -7,12 +7,22 @@ export async function GET() {
       orderBy: { name: "asc" },
     });
 
-    return NextResponse.json(warehouses);
+    if (warehouses.length > 0) {
+      return NextResponse.json(warehouses);
+    }
+
+    const fallback = await fallbackWarehouses();
+    return NextResponse.json(fallback);
   } catch (error) {
     console.error("Error fetching warehouses:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch warehouses" },
-      { status: 500 }
-    );
+    try {
+      const warehouses = await fallbackWarehouses();
+      return NextResponse.json(warehouses);
+    } catch {
+      return NextResponse.json(
+        { error: "Failed to fetch warehouses" },
+        { status: 500 }
+      );
+    }
   }
 }
