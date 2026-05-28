@@ -600,14 +600,6 @@ export default function DashboardPage() {
             <div className="hero-title">AI Operational Intelligence + Voice Copilot</div>
             <div className="hero-sub">{operationalInsights[0]?.summary ?? 'Realtime inventory insights and alerts'}</div>
           </div>
-          <div className="hero-cards">
-            {operationalInsights.slice(0, 2).map((insight) => (
-              <div key={insight.title} className="ai-insight-card">
-                <div className="text-xs font-semibold">{insight.title}</div>
-                <div className="mt-1 text-sm">{insight.summary}</div>
-              </div>
-            ))}
-          </div>
         </section>
 
         <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
@@ -766,21 +758,6 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 )}
-
-                <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                  {[
-                    ["Total stock", metrics.totalStock.toLocaleString(), `${products.length} products`],
-                    ["Available", metrics.availableStock.toLocaleString(), "ready to reserve"],
-                    ["Reserved", metrics.reservedStock.toLocaleString(), "pending payment"],
-                    ["Confirmed", metrics.confirmed.toString(), "paid reservations"],
-                  ].map(([label, value, sub]) => (
-                    <div key={label} className="rounded border border-border bg-white p-4 shadow-sm">
-                      <div className="mb-1.5 text-[11px] uppercase tracking-wide text-slate-400">{label}</div>
-                      <div className="font-mono text-2xl font-semibold">{value}</div>
-                      <div className="mt-0.5 text-xs text-slate-400">{sub}</div>
-                    </div>
-                  ))}
-                </div>
 
                 <div className="overflow-hidden rounded border border-border bg-white shadow-sm">
                   <div className="flex items-center justify-between border-b border-border px-4 py-3">
